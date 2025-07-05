@@ -10,7 +10,7 @@ So using Ruby, what is the largest Fibonacci number we can calculate quickly?
 
 In case you are not familiar, the Fibonacci sequence is a classic mathematical progression where each number is the sum of the previous two. Starting with 0 and 1, the sequence looks like this:
 
-$0, 1, 1, 2, 3, 5, 8, 13, 21, 34, ...$
+$$0, 1, 1, 2, 3, 5, 8, 13, 21, 34, ...$$
 
 ## Basic Recursive Fibonacci Algorithm and Its Limitations
 
@@ -31,93 +31,114 @@ This algorithm is simple and clear. However, if we look at its performance, we c
 
 This happens because we are doing a lot of redundant calculations. Imagine calculating the 5th Fibonacci number. To calculate it, we need the 4th and the 3rd numbers. To calculate the 4th number, we need the 3rd and the 2nd. This pattern repeats until we hit the 0th or the 1st number. The larger the number, the more computations we need to perform.
 
-Using Binet’s Formula for Constant Time Calculation
+## Using Binet’s Formula for Constant Time Calculation
 
 It turns out there is a closed-form expression for calculating the nth Fibonacci number. To overcome recursive inefficiency, we turn to Binet’s formula:
 
+$$F_n = \frac{\phi^n - \psi^n}{\sqrt{5}}$$
+
 Where:
 
-$\phi =  \frac{1 + \sqrt{5}}{2}$, (phi) the golden ratio
-
-$\psi = \frac{1 - \sqrt{5}}{2}$, (psi) its conjugate
+- \$\phi = \frac{1 + \sqrt{5}}{2}\$, (phi) the golden ratio
+- \$\psi = \frac{1 - \sqrt{5}}{2}\$, (psi) its conjugate
 
 This formula allows computation in constant time, a significant performance leap. Implementing it in Ruby involves calculating powers of irrational numbers and rounding the result.
 
-In fact, since $\psi^n$ is so small, we can further simplify this formula to:
+In fact, since \$\psi^n\$ is so small, we can further simplify this formula to:
 
-Closed-form Algorithm
+$$F_n = \Bigl\lfloor\frac{\phi^n}{\sqrt{5}}\Bigr\rceil$$
 
+### Closed-form Algorithm
+
+```ruby
 SQRT_FIVE = Math.sqrt(5)
 PHI = (1 + SQRT_FIVE) / 2
 
 def fibonacci(n)
-((PHI\*\*n)/SQRT_FIVE).round
+  ((PHI**n)/SQRT_FIVE).round
 end
+```
 
 This is a constant-time algorithm according to our performance graphs.
 
+![Graph 2](https://github.com/doliveirakn/fibonacci/blob/main/images/Graph%202.png)
+
 However, this algorithm faces two major challenges:
 
-Precision limits: At the 71st Fibonacci number, this algorithm will return a value of 608061521170130, whereas the actual 71st Fibonacci number is 608061521170129 — just one less.
+1. **Precision limits:** At the 71st Fibonacci number, this algorithm will return a value of `608061521170130`, whereas the actual 71st Fibonacci number is `608061521170129` — just one less.
 
-This happens because Ruby does not have infinite precision, so at some point, rounding issues occur. As the algorithm calculates larger Fibonacci numbers, this discrepancy increases.
+   This happens because Ruby does not have infinite precision, so at some point, rounding issues occur. As the algorithm calculates larger Fibonacci numbers, this discrepancy increases.
 
-Float domain errors: At around the 1475th Fibonacci number, this algorithm will raise a FloatDomainError.
+2. **Float domain errors:** At around the 1475th Fibonacci number, this algorithm will raise a `FloatDomainError`.
 
-This occurs in Ruby when a calculation exceeds the limits of floating-point precision and returns Infinity. For example, raising $\sqrt{5}$ to the 883rd power yields Infinity, and calling methods like round on Infinity will trigger a FloatDomainError.
+   This occurs in Ruby when a calculation exceeds the limits of floating-point precision and returns `Infinity`. For example, raising \$\sqrt{5}\$ to the 883rd power yields `Infinity`, and calling methods like `round` on `Infinity` will trigger a `FloatDomainError`.
 
-Math.sqrt(5) \*\* 883
+```ruby
+Math.sqrt(5) ** 883
 => Infinity
+```
 
 Can we do better?
 
-Closed-form Algorithm #2
+### Closed-form Algorithm #2
 
-Ruby’s BigDecimal library offers arbitrary-precision decimal arithmetic, allowing us to mitigate rounding errors by specifying how many decimal places to calculate.
+Ruby’s `BigDecimal` library offers arbitrary-precision decimal arithmetic, allowing us to mitigate rounding errors by specifying how many decimal places to calculate.
 
-By replacing standard floating-point operations with BigDecimal, we can compute Fibonacci numbers with much greater accuracy and avoid early overflow issues.
+By replacing standard floating-point operations with `BigDecimal`, we can compute Fibonacci numbers with much greater accuracy and avoid early overflow issues.
 
+```ruby
 SQRT_FIVE = BigDecimal("5").sqrt(1000)
 PHI = (1 + SQRT_FIVE) / 2
 
 def fibonacci(n)
-((PHI\*\*n)/SQRT_FIVE).round
+  ((PHI**n)/SQRT_FIVE).round
 end
+```
 
 This is already much better! We can compute the correct Fibonacci numbers well past the 75th. The trade-off is performance: the more precision requested, the slower the calculations become.
+
+![Graph 3](https://github.com/doliveirakn/fibonacci/blob/main/images/Graph%203.png)
 
 BigDecimal is a great library to leverage in Ruby. It is a little slower than the standard numeric options, but it avoids many of the precision pitfalls.
 
 This gets us past the 100th Fibonacci number. What do we need to do to get to the 1000th?
 
-Closed-form Algorithm #3
+### Closed-form Algorithm #3
 
 Ruby’s built-in support for rational numbers provides a promising alternative. Instead of decimals, rationals represent numbers as fractions of integers, avoiding floating-point precision problems.
 
-$\sqrt{5}$ is an irrational number, so by definition, it cannot be represented exactly as a rational number. However, we can approximate it.
+\$\sqrt{5}\$ is an irrational number, so by definition, it cannot be represented exactly as a rational number. However, we can approximate it.
 
-Using continued fractions, we can approximate irrational numbers like $\sqrt{5}$ to arbitrary precision by expanding the fraction deeper and deeper.
+$$\sqrt{5} = 2 + \frac{1}{4 + \frac{1}{4 + \frac{1}{4 + \frac{1}{4 + \ddots}}}}$$
 
-If we take this approximation a few levels deep, we get $\frac{38}{17}$, which is about 2.235294117647059.
+Using continued fractions, we can approximate irrational numbers like \$\sqrt{5}\$ to arbitrary precision by expanding the fraction deeper and deeper.
 
-Going one level deeper gives us $\frac{161}{72}$, or approximately 2.2361111111111. Each level brings a better approximation.
+$$\sqrt{5} = 2.23606797749978969640\dots$$
 
-We can achieve a good representation of $\sqrt{5}$ by going 1000 levels deep:
+If we take this approximation a few levels deep, we get \$\frac{38}{17}\$, which is about `2.235294117647059`.
 
-APPROXIMATION*DEPTH = 1000
+Going one level deeper gives us \$\frac{161}{72}\$, or approximately `2.2361111111111`. Each level brings a better approximation.
+
+We can achieve a good representation of \$\sqrt{5}\$ by going 1000 levels deep:
+
+```ruby
+APPROXIMATION_DEPTH = 1000
 SQRT_FIVE = 2 +
-APPROXIMATION_DEPTH.times.inject(0) do |result, *|
-Rational(1, 4 + result)
-end
+  APPROXIMATION_DEPTH.times.inject(0) do |result, _|
+    Rational(1, 4 + result)
+  end
 PHI = (1 + SQRT_FIVE) / 2
 
 def fibonacci(n)
-(PHI\*\*n/SQRT_FIVE).round
+  (PHI**n/SQRT_FIVE).round
 end
+```
 
 This gets us well past the 1000th Fibonacci number quickly!
 
-However, there are still limitations. Since we are using an approximation, the results start to drift as we seek larger Fibonacci numbers. In theory, we could use a deeper continued fraction to improve accuracy, but eventually, the numerator and denominator become so large that Ruby will raise a FloatDomainError again.
+![Graph 4](https://github.com/doliveirakn/fibonacci/blob/main/images/Graph%204.png)
+
+However, there are still limitations. Since we are using an approximation, the results start to drift as we seek larger Fibonacci numbers. In theory, we could use a deeper continued fraction to improve accuracy, but eventually, the numerator and denominator become so large that Ruby will raise a `FloatDomainError` again.
 
 Rational numbers strike a good balance between precision and performance, making them a powerful tool in the Fibonacci algorithm toolbox.
 
@@ -232,9 +253,49 @@ end
 
 ![Graph 6](https://github.com/doliveirakn/fibonacci/blob/main/images/Graph%206.png)
 
-This algorithm is actually slower than our recursive version. However, we can refine it. By leveraging properties of matrix exponentiation, we can reduce the number of operations. Specifically, we can break down the exponent into powers of two, compute those powers individually, and multiply the results.
+This algorithm is actually slower than our recursive version. However, we can refine it. By leveraging properties of matrix exponentiation, we can reduce the number of operations. Specifically, we can break down the exponent into powers of two, compute those powers individually, and multiply the results. For example, instead of raising the Fibonacci matrix to the 11th power, we could break that finding this matrix raised to the 8th, 2nd, and 1st power, and then multiple the results.
 
-This is known as the repeated squares algorithm:
+$$
+\begin{aligned}
+\begin{bmatrix}
+1 & 1 \\
+1 & 0 \\
+\end{bmatrix} ^ {11} & = \begin{bmatrix}
+1 & 1 \\
+1 & 0 \\
+\end{bmatrix} ^ {8 + 2 + 1} \\
+ & = \begin{bmatrix}
+1 & 1 \\
+1 & 0 \\
+\end{bmatrix} ^ {8}
+\begin{bmatrix}
+1 & 1 \\
+1 & 0 \\
+\end{bmatrix} ^ {2}
+\begin{bmatrix}
+1 & 1 \\
+1 & 0 \\
+\end{bmatrix} ^ {1} \\
+ & = \begin{bmatrix}
+31 & 21 \\
+21 & 13 \\
+\end{bmatrix}
+\begin{bmatrix}
+2 & 1 \\
+1 & 1 \\
+\end{bmatrix}
+\begin{bmatrix}
+1 & 1 \\
+1 & 0 \\
+\end{bmatrix} \\
+& = \begin{bmatrix}
+144 & 89 \\
+89 & 55 \\
+\end{bmatrix}
+\end{aligned}
+$$
+
+We can rewrite our algorithm using this fact. This is known as the repeated squares algorithm:
 
 ```ruby
 FIB_MATRIX = Matrix[
@@ -255,11 +316,11 @@ end
 
 ![Graph 7](https://github.com/doliveirakn/fibonacci/blob/main/images/Graph%207.png)
 
-This approach allows us to calculate the 1,000,000th Fibonacci number—and even numbers above 45,000,000—efficiently.
+This approach allows us to calculate the 1,000,000th Fibonacci number and even above 45,000,000th Fibonacci number efficiently.
 
 Understanding Ruby’s bitwise operators is incredibly useful for this method. They can be used in many contexts, such as generating random numbers that incorporate the current time, or toggling boolean configuration flags.
 
-45,000,000 is an impressively large Fibonacci number. But can we go even further?
+45,000,000th Fibonacci number is an impressively large. But can we go even further?
 
 ## Fast Doubling Algorithm
 
@@ -274,16 +335,17 @@ F_{2n} & F_{2n-1} \\
 \begin{bmatrix}
 1 & 1 \\
 1 & 0 \\
-\end{bmatrix}^{2n} =
+\end{bmatrix}^{2n} & =
 \left(\begin{bmatrix}
 1 & 1 \\
 1 & 0 \\
 \end{bmatrix}^{n}\right)^2 \\
-& =
+& & =
 \begin{bmatrix}
 F_{n+1} & F_n \\
 F_n & F_{n-1} \\
-\end{bmatrix}^2 =
+\end{bmatrix}^2 \\
+& & =
 \begin{bmatrix}
 F_{n+1}^2 + F_n^2 & 2F_nF_{n+1} - F_n^2 \\
 2F_nF_{n+1} - F_n^2 & F_n^2 + F_{n-1}^2 \\
@@ -291,12 +353,13 @@ F_{n+1}^2 + F_n^2 & 2F_nF_{n+1} - F_n^2 \\
 \end{aligned}
 $$
 
-From this, we derive:
+From this, we can see that:
 
-$F_{2n+1} = F_{n+1}^2 + F_n^2$
-$F_{2n} = 2F_nF_{n+1} - F_n^2$
+$$F_{2n+1} = F_{n+1}^2 + F_n^2$$
 
-Here’s the final algorithm using fast doubling in Ruby:
+$$F_{2n} = 2F_nF_{n+1} - F_n^2$$
+
+This effectively gives us a formula for odd and even Fibonacci numbers. Here’s the final algorithm using fast doubling in Ruby:
 
 ```ruby
 def fibonacci(n)
@@ -322,7 +385,7 @@ def _fib(hash, n)
 end
 ```
 
-By leveraging the default proc for Hashes, we avoid redundant calculations.
+By leveraging the default proc for Hashes, we avoid redundant calculations. This is a useful tactic for dynamic programming.
 
 ![Graph 8](https://github.com/doliveirakn/fibonacci/blob/main/images/Graph%208.png)
 
